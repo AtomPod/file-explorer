@@ -1,0 +1,78 @@
+mode: "debug"
+server_name: "Atom-Explorer"
+http:
+  host: "localhost"
+  port: "8080"
+  ssl: false
+  cert_path: ""
+  key_path: ""
+  auto_tls:
+    enable: false
+    cache_dir: ""
+    hosts: 
+      - ""
+database:
+  engine: "postgres"
+  host: "localhost"
+  port: 5432
+  dbname: ""
+  user: ""
+  password: ""
+  sslmode: "disable"
+user_service:
+  jwt:
+    signing_key: "atomic-file-service"
+    expire: 2h
+  verification_code:
+    email:
+      type_name: "email_register"
+      expiration: 2h
+      mail_templ_name: "email_register"
+    reset_password:
+      type_name: "reset_password"
+      expiration: 2h
+      mail_templ_name: "reset_password"
+
+email_template:
+  base_path: "/mailer/html"
+  items:
+    - 
+      subject: "邮箱验证码"
+      content_type: "text/html"
+      alias: "email_register"
+      filename: "email_verification_code.tpl"
+    -
+      subject: "修改密码验证"
+      content_type: "text/html"
+      alias: "reset_password"
+      filename: "reset_password_verification_code.tpl"
+
+file_service:
+  basepath: "files"
+cache:
+  engine: "redis"
+  locations:
+    - "redis://localhost:6379/0"
+  key_prefix: ""
+  max_cache_size: 0
+email:
+  host: "smtp.live.com"
+  port: 587
+  username: ""
+  password: ""
+  ssl: false
+  cert_path: ""
+  key_path: ""
+  local_name: ""
+prometheus:
+  enable: false
+  gateway_addr: ""
+  interval_sec: 0
+log:
+  level: "debug"
+  encoding: "console"
+  output_paths: 
+    - stdout
+  error_output_paths:
+    - stderr
+  
