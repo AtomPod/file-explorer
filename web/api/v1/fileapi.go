@@ -56,7 +56,7 @@ func (api *API) FileUpload(c *gin.Context, form *forms.FileUpload) *APIResult {
 }
 
 //FileDownload 下载文件API
-//GET /api/v1/file/{id}/download
+//GET /api/v1/file/{id}
 func (api *API) FileDownload(c *gin.Context, form *forms.FileDownload) *APIResult {
 	owner := c.GetString("userID")
 
@@ -83,11 +83,11 @@ func (api *API) FileDownload(c *gin.Context, form *forms.FileDownload) *APIResul
 }
 
 //FileGetRootList 获取文件信息
-//GET /api/v1/file/root
+//GET /api/v1/file
 func (api *API) FileGetRootList(c *gin.Context) *APIResult {
 	owner := c.GetString("userID")
 
-	file, err := api.fileServ.GetFileByID(owner, owner)
+	file, err := api.fileServ.GetFileByPID(owner, owner, 0, 0)
 	if err != nil {
 		return fileErrorToAPIResult(err)
 	}
@@ -95,7 +95,7 @@ func (api *API) FileGetRootList(c *gin.Context) *APIResult {
 }
 
 //FileGetInfo 获取文件信息
-//GET /api/v1/file/{id}
+//GET /api/v1/file/{id}/info
 func (api *API) FileGetInfo(c *gin.Context, form *forms.FileID) *APIResult {
 	owner := c.GetString("userID")
 
@@ -149,7 +149,7 @@ func (api *API) FileMkdir(c *gin.Context, form *forms.FileMkdir) *APIResult {
 }
 
 //FileMove 移动文件API
-//POST /api/v1/file/{id}/move
+//PUT /api/v1/file/{id}/move
 func (api *API) FileMove(c *gin.Context, form *forms.FileMove) *APIResult {
 	owner := c.GetString("userID")
 
@@ -165,7 +165,7 @@ func (api *API) FileMove(c *gin.Context, form *forms.FileMove) *APIResult {
 }
 
 //FileRename 修改文件名称API
-//POST /api/v1/file/{id}/rename
+//PUT /api/v1/file/{id}/rename
 func (api *API) FileRename(c *gin.Context, form *forms.FileRename) *APIResult {
 	owner := c.GetString("userID")
 

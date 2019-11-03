@@ -64,24 +64,24 @@ type File interface {
 
 //FileService 文件服务
 type FileService struct {
-	config         func() *config.Config
-	uuid           func() string
-	fileRepository repository.FileRepository
-	namedLocker    locker.NamedLocker
+	config      func() *config.Config
+	uuid        func() string
+	dataContext repository.DataContext
+	namedLocker locker.NamedLocker
 }
 
 //NewFileService 创建FileService
 func NewFileService(
 	configFunc func() *config.Config,
 	uuid func() string,
-	fileRepository repository.FileRepository,
+	dataContext repository.DataContext,
 	namedLocker locker.NamedLocker,
 ) *FileService {
 	return &FileService{
-		config:         configFunc,
-		uuid:           uuid,
-		fileRepository: fileRepository,
-		namedLocker:    namedLocker,
+		config:      configFunc,
+		uuid:        uuid,
+		dataContext: dataContext,
+		namedLocker: namedLocker,
 	}
 }
 
@@ -99,7 +99,11 @@ func (f *FileService) createFileModel(file *models.File) (*models.File, error) {
 		file.FID = fid
 	}
 
-	repository := f.fileRepository
+	repository, err := f.dataContext.File()
+	if err != nil {
+		return nil, err
+	}
+
 	directory := "/"
 
 	if file.Owner != file.PFID {
@@ -251,7 +255,26 @@ func (f *FileService) DeleteFile(owner string, fid string) error {
 
 	f.namedLocker.Lock(owner)
 	defer f.namedLocker.UnLock(owner)
-	deleteFile, err := f.fileRepository.GetFileByID(owner, fid)
+
+	var commited = false
+	UOW, err := f.dataContext.Unit()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if !commited {
+			if err := UOW.Rollback(); err != nil {
+				log.Warn("msg", "rollback failed in FileService.DeleteFile", "error", err.Error())
+			}
+		}
+	}()
+
+	fileRepository, err := UOW.File()
+	if err != nil {
+		return err
+	}
+
+	deleteFile, err := fileRepository.GetFileByID(owner, fid)
 	if err != nil {
 		return err
 	}
@@ -260,7 +283,15 @@ func (f *FileService) DeleteFile(owner string, fid string) error {
 		return NewPathError("delete", fid, ErrFileNotFound)
 	}
 
-	return f.fileRepository.DeleteFile(deleteFile)
+	if err := fileRepository.DeleteFile(deleteFile); err != nil {
+		return err
+	}
+
+	if err := UOW.Commit(); err != nil {
+		return err
+	}
+	commited = true
+	return nil
 }
 
 //Download 下载文件，文件属于owner，编号为fid
@@ -272,7 +303,12 @@ func (f *FileService) Download(owner string, fid string) (File, *models.File, er
 		return nil, nil, invalidArgument("FileService", "fid", "Download")
 	}
 
-	downloadFile, err := f.fileRepository.GetFileByID(owner, fid)
+	fileRepository, err := f.dataContext.File()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	downloadFile, err := fileRepository.GetFileByID(owner, fid)
 
 	if err != nil {
 		return nil, nil, err
@@ -289,6 +325,12 @@ func (f *FileService) Download(owner string, fid string) (File, *models.File, er
 	absolutePath := filepath.Join(f.config().FileService.FileAbsolutePath(), downloadFile.FID)
 	file, err := os.OpenFile(absolutePath, os.O_RDONLY, 0666)
 	if err != nil {
+		if os.IsNotExist(err) {
+			if err := fileRepository.DeleteFile(downloadFile); err != nil {
+				return nil, nil, err
+			}
+			return nil, nil, NewPathError("download", fid, ErrFileIsMissing)
+		}
 		return nil, nil, err
 	}
 	return file, downloadFile, nil
@@ -310,7 +352,26 @@ func (f *FileService) MoveFile(owner string, fid string, newPFID string) error {
 
 	f.namedLocker.Lock(owner)
 	defer f.namedLocker.UnLock(owner)
-	moveFile, err := f.fileRepository.GetFileByID(owner, fid)
+
+	var commited = false
+	UOW, err := f.dataContext.Unit()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if !commited {
+			if err := UOW.Rollback(); err != nil {
+				log.Warn("msg", "rollback failed in FileService.MoveFile", "error", err.Error())
+			}
+		}
+	}()
+
+	fileRepository, err := UOW.File()
+	if err != nil {
+		return err
+	}
+
+	moveFile, err := fileRepository.GetFileByID(owner, fid)
 	if err != nil {
 		return err
 	}
@@ -322,7 +383,16 @@ func (f *FileService) MoveFile(owner string, fid string, newPFID string) error {
 	if moveFile.PFID == newPFID {
 		return nil
 	}
-	return f.move(moveFile, newPFID, f.fileRepository)
+
+	if err := f.move(moveFile, newPFID, fileRepository); err != nil {
+		return err
+	}
+
+	if err := UOW.Commit(); err != nil {
+		return err
+	}
+	commited = true
+	return nil
 }
 
 //RenameFile 修改文件名称，文件编号为fid，新文件名称newName
@@ -341,7 +411,26 @@ func (f *FileService) RenameFile(owner string, fid string, newName string) error
 
 	f.namedLocker.Lock(owner)
 	defer f.namedLocker.UnLock(owner)
-	renameFile, err := f.fileRepository.GetFileByID(owner, fid)
+
+	var commited = false
+	UOW, err := f.dataContext.Unit()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if !commited {
+			if err := UOW.Rollback(); err != nil {
+				log.Warn("msg", "rollback failed in FileService.MoveFile", "error", err.Error())
+			}
+		}
+	}()
+
+	fileRepository, err := UOW.File()
+	if err != nil {
+		return err
+	}
+
+	renameFile, err := fileRepository.GetFileByID(owner, fid)
 	if err != nil {
 		return err
 	}
@@ -354,7 +443,15 @@ func (f *FileService) RenameFile(owner string, fid string, newName string) error
 		return nil
 	}
 
-	return f.rename(renameFile, newName, f.fileRepository)
+	if err := f.rename(renameFile, newName, fileRepository); err != nil {
+		return err
+	}
+
+	if err := UOW.Commit(); err != nil {
+		return err
+	}
+	commited = true
+	return nil
 }
 
 func (f *FileService) rename(file *models.File, newName string,
@@ -429,7 +526,12 @@ func (f *FileService) GetFileByID(owner string, fid string) (*models.File, error
 		return nil, invalidArgument("FileService", "fid", "GetFileByID")
 	}
 
-	file, err := f.fileRepository.GetFileByID(owner, fid)
+	fileRepository, err := f.dataContext.File()
+	if err != nil {
+		return nil, err
+	}
+
+	file, err := fileRepository.GetFileByID(owner, fid)
 	if err != nil {
 		return nil, err
 	}
@@ -452,7 +554,12 @@ func (f *FileService) GetFileByPID(owner string, pid string, limit int, offset i
 		return nil, invalidArgument("FileService", "pid", "GetFileByID")
 	}
 
-	files, err := f.fileRepository.GetFilesByPFID(owner, pid, limit, offset)
+	fileRepository, err := f.dataContext.File()
+	if err != nil {
+		return nil, err
+	}
+
+	files, err := fileRepository.GetFilesByPFID(owner, pid, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -471,7 +578,12 @@ func (f *FileService) GetFileListsByOnwer(owner string) ([]*models.File, error) 
 		return nil, invalidArgument("FileService", "owner", "GetFileByID")
 	}
 
-	files, err := f.fileRepository.GetFileByOwner(owner, false, 0, 0)
+	fileRepository, err := f.dataContext.File()
+	if err != nil {
+		return nil, err
+	}
+
+	files, err := fileRepository.GetFileByOwner(owner, false, 0, 0)
 	if err != nil {
 		return nil, err
 	}

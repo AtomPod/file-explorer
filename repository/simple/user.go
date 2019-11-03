@@ -1,15 +1,15 @@
-package sqlrepository
+package simple
 
 import (
 	"github.com/jinzhu/gorm"
 	"github.com/phantom-atom/file-explorer/models"
 )
 
-func (r *Repository) CreateUser(user *models.User) error {
+func (r *dbRepository) CreateUser(user *models.User) error {
 	return r.db.Create(user).Error
 }
 
-func (r *Repository) DeleteUser(id string) error {
+func (r *dbRepository) DeleteUser(id string) error {
 	db := r.db.Delete("id = ?", id).Delete(&models.User{})
 	if err := db.Error; err != nil {
 		return err
@@ -27,11 +27,11 @@ func (r *Repository) DeleteUser(id string) error {
 	return nil
 }
 
-func (r *Repository) UpdateUser(user *models.User) error {
+func (r *dbRepository) UpdateUser(user *models.User) error {
 	return r.db.Save(user).Error
 }
 
-func (r *Repository) GetUser(id string) (*models.User, error) {
+func (r *dbRepository) GetUser(id string) (*models.User, error) {
 	var user models.User
 	err := r.db.Where("id = ?", id).First(&user).Error
 	if err == gorm.ErrRecordNotFound {
@@ -43,7 +43,7 @@ func (r *Repository) GetUser(id string) (*models.User, error) {
 	return &user, nil
 }
 
-func (r *Repository) GetUserByUsername(username string) (*models.User, error) {
+func (r *dbRepository) GetUserByUsername(username string) (*models.User, error) {
 	var user models.User
 	err := r.db.Where("username = ?", username).First(&user).Error
 	if err == gorm.ErrRecordNotFound {
@@ -55,7 +55,7 @@ func (r *Repository) GetUserByUsername(username string) (*models.User, error) {
 	return &user, nil
 }
 
-func (r *Repository) GetUserByEmail(email string) (*models.User, error) {
+func (r *dbRepository) GetUserByEmail(email string) (*models.User, error) {
 	var user models.User
 	err := r.db.Where("email = ?", email).First(&user).Error
 	if err == gorm.ErrRecordNotFound {
@@ -67,7 +67,7 @@ func (r *Repository) GetUserByEmail(email string) (*models.User, error) {
 	return &user, nil
 }
 
-func (r *Repository) GetUserList(limit int, offset int) ([]*models.User, error) {
+func (r *dbRepository) GetUserList(limit int, offset int) ([]*models.User, error) {
 	var users = make([]*models.User, 0)
 	db := r.db
 
@@ -90,7 +90,7 @@ func (r *Repository) GetUserList(limit int, offset int) ([]*models.User, error) 
 	return users, nil
 }
 
-func (r *Repository) CheckUserExists(user *models.User) (string, error) {
+func (r *dbRepository) CheckUserExists(user *models.User) (string, error) {
 	var conflictingUser models.User
 
 	db := r.db

@@ -1,4 +1,4 @@
-package cachedrepository
+package simple
 
 import (
 	"encoding/json"
@@ -20,7 +20,7 @@ type VerificationCodeRepository struct {
 }
 
 //NewVerificationCodeRepository 创建VerificationCodeRepository
-func NewVerificationCodeRepository(
+func newVerificationCodeRepository(
 	cache cache.Cache,
 	configFun func() *config.Config,
 	now func() time.Time,

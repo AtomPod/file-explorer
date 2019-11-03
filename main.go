@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/phantom-atom/file-explorer/repository/simple"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jinzhu/gorm"
@@ -25,8 +27,6 @@ import (
 	"github.com/phantom-atom/file-explorer/middleware"
 	"github.com/phantom-atom/file-explorer/models"
 	"github.com/phantom-atom/file-explorer/repository"
-	"github.com/phantom-atom/file-explorer/repository/cachedrepository"
-	"github.com/phantom-atom/file-explorer/repository/sqlrepository"
 	"github.com/phantom-atom/file-explorer/services"
 	v1 "github.com/phantom-atom/file-explorer/web/api/v1"
 	"github.com/phantom-atom/file-explorer/web/api/v1/register"
@@ -34,18 +34,16 @@ import (
 )
 
 var (
-	globalConfig   *config.Config
-	database       *gorm.DB
-	workDirectory  string
-	fileService    *services.FileService
-	userService    *services.UserService
-	closeExecutor  = &executor.Executor{}
-	fileRepository repository.FileRepository
-	userRepository repository.UserRepository
-	codeRepository repository.VerificationCodeRepository
-	namedLocker    locker.NamedLocker
-	asyncMailer    *mailer.Mailer
-	dataCache      cache.Cache
+	globalConfig  *config.Config
+	database      *gorm.DB
+	workDirectory string
+	fileService   *services.FileService
+	userService   *services.UserService
+	closeExecutor = &executor.Executor{}
+	namedLocker   locker.NamedLocker
+	asyncMailer   *mailer.Mailer
+	dataCache     cache.Cache
+	dataContext   repository.DataContext
 )
 
 func main() {
@@ -133,12 +131,14 @@ func initCache() {
 }
 
 func initRepository() {
-	repository := sqlrepository.NewRepository(database, configFunc)
-	fileRepository = repository
-	userRepository = repository
-	codeRepository = cachedrepository.NewVerificationCodeRepository(
-		dataCache, configFunc, time.Now,
+	var err error
+	dataContext, err = simple.NewContext(
+		database, dataCache, configFunc, time.Now,
 	)
+
+	if err != nil {
+		log.Panic("msg", "occur an error when initializa repository", "error", err.Error())
+	}
 }
 
 func initDatabase() {
@@ -189,7 +189,7 @@ func initFileService() {
 		func() string {
 			return uuid.New().String()
 		},
-		fileRepository,
+		dataContext,
 		namedLocker,
 	)
 
@@ -204,8 +204,7 @@ func initUserService() {
 			return uuid.New().String()
 		},
 		time.Now,
-		userRepository,
-		codeRepository,
+		dataContext,
 		asyncMailer,
 		namedLocker,
 	)

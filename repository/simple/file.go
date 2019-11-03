@@ -1,4 +1,4 @@
-package sqlrepository
+package simple
 
 import (
 	"os"
@@ -10,11 +10,11 @@ import (
 	"github.com/phantom-atom/file-explorer/models"
 )
 
-func (r *Repository) CreateFile(f *models.File) error {
+func (r *dbRepository) CreateFile(f *models.File) error {
 	return r.db.Create(f).Error
 }
 
-func (r *Repository) DeleteFile(f *models.File) error {
+func (r *dbRepository) DeleteFile(f *models.File) error {
 	if f.IsDir {
 		files, err := r.GetFilesByPFID(f.Owner, f.FID, 0, 0)
 		if err != nil {
@@ -43,11 +43,11 @@ func (r *Repository) DeleteFile(f *models.File) error {
 	return nil
 }
 
-func (r *Repository) UpdateFile(f *models.File) error {
+func (r *dbRepository) UpdateFile(f *models.File) error {
 	return r.db.Save(f).Error
 }
 
-func (r *Repository) GetFileList(limit int, offset int) ([]*models.File, error) {
+func (r *dbRepository) GetFileList(limit int, offset int) ([]*models.File, error) {
 	files := make([]*models.File, 0)
 
 	db := r.db
@@ -68,7 +68,7 @@ func (r *Repository) GetFileList(limit int, offset int) ([]*models.File, error) 
 	return files, err
 }
 
-func (r *Repository) GetFileByPFIDAndName(owner string, pfid string, name string) (*models.File, error) {
+func (r *dbRepository) GetFileByPFIDAndName(owner string, pfid string, name string) (*models.File, error) {
 	file := &models.File{}
 	db := r.db
 	db = db.Where("pfid = ? AND owner = ? AND filename = ?", pfid, owner, name)
@@ -80,7 +80,7 @@ func (r *Repository) GetFileByPFIDAndName(owner string, pfid string, name string
 	return file, err
 }
 
-func (r *Repository) GetFilesByPFID(owner string, pfid string, limit int, offset int) ([]*models.File, error) {
+func (r *dbRepository) GetFilesByPFID(owner string, pfid string, limit int, offset int) ([]*models.File, error) {
 	files := make([]*models.File, 0)
 	db := r.db
 	db = db.Where("owner = ? AND pfid = ?", owner, pfid)
@@ -100,7 +100,7 @@ func (r *Repository) GetFilesByPFID(owner string, pfid string, limit int, offset
 	return files, err
 }
 
-func (r *Repository) GetFileByID(owner string, fid string) (*models.File, error) {
+func (r *dbRepository) GetFileByID(owner string, fid string) (*models.File, error) {
 	file := &models.File{}
 	db := r.db
 	db = db.Where("fid = ? AND owner = ?", fid, owner)
@@ -112,7 +112,7 @@ func (r *Repository) GetFileByID(owner string, fid string) (*models.File, error)
 	return file, err
 }
 
-func (r *Repository) GetFileByOwner(owner string, isdir bool, limit int, offset int) ([]*models.File, error) {
+func (r *dbRepository) GetFileByOwner(owner string, isdir bool, limit int, offset int) ([]*models.File, error) {
 
 	files := make([]*models.File, 0)
 	db := r.db

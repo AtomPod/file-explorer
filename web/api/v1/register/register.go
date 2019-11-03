@@ -34,17 +34,13 @@ func APIGINRegister(
 
 	fileRouter := apiRouter.Group("/file")
 	fileRouter.Use(authAPIMiddleware)
-
-	fileRouter.PUT("/upload", ginAPIFunc(api.FileUpload))
-	fileRouter.PUT("/mkdir", ginAPIFunc(api.FileMkdir))
-
-	fileRouter.POST("/:id/rename", ginAPIFunc(api.FileRename))
-	fileRouter.POST("/:id/move", ginAPIFunc(api.FileMove))
-
+	fileRouter.POST("/upload", ginAPIFunc(api.FileUpload))
+	fileRouter.POST("/mkdir", ginAPIFunc(api.FileMkdir))
+	fileRouter.PUT("/:id/rename", ginAPIFunc(api.FileRename))
+	fileRouter.PUT("/:id/move", ginAPIFunc(api.FileMove))
 	fileRouter.GET("/", api.Gin(api.FileGetRootList))
 	fileRouter.GET("/:id", ginAPIFunc(api.FileDownload))
 	fileRouter.GET("/:id/info", ginAPIFunc(api.FileGetInfo))
 	fileRouter.GET("/:id/list", ginAPIFunc(api.FileGetList))
-
 	fileRouter.DELETE("/:id", ginAPIFunc(api.FileDelete))
 }

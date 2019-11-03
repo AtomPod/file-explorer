@@ -60,13 +60,12 @@ func NewUserError(op string, err error) *UserError {
 
 //UserService 用户服务
 type UserService struct {
-	config         func() *config.Config
-	uuid           func() string
-	now            func() time.Time
-	userRepository repository.UserRepository
-	codeRepository repository.VerificationCodeRepository
-	mailer         *mailer.Mailer
-	namedLocker    locker.NamedLocker
+	config      func() *config.Config
+	uuid        func() string
+	now         func() time.Time
+	dataContext repository.DataContext
+	mailer      *mailer.Mailer
+	namedLocker locker.NamedLocker
 }
 
 //NewUserService 创建用户服务
@@ -74,18 +73,16 @@ func NewUserService(
 	configFunc func() *config.Config,
 	uuid func() string,
 	now func() time.Time,
-	userRepository repository.UserRepository,
-	codeRepository repository.VerificationCodeRepository,
+	dataContext repository.DataContext,
 	mailer *mailer.Mailer,
 	namedLocker locker.NamedLocker) *UserService {
 	return &UserService{
-		config:         configFunc,
-		uuid:           uuid,
-		now:            now,
-		userRepository: userRepository,
-		codeRepository: codeRepository,
-		mailer:         mailer,
-		namedLocker:    namedLocker,
+		config:      configFunc,
+		uuid:        uuid,
+		now:         now,
+		dataContext: dataContext,
+		mailer:      mailer,
+		namedLocker: namedLocker,
 	}
 }
 
@@ -155,8 +152,18 @@ func (us *UserService) ResetPassword(params *UserResetPasswordParams) error {
 		return NewUserError("reset password", ErrVerificationCodeIsInvalid)
 	}
 
+	codeRepository, err := us.dataContext.VerificationCode()
+	if err != nil {
+		return err
+	}
+
+	userRepository, err := us.dataContext.User()
+	if err != nil {
+		return err
+	}
+
 	resestPasswordCodeConf := &us.config().UserService.VerificationCode.ResetPassword
-	code, err := us.codeRepository.GetVerificationCodeByCodeTypeTarget(
+	code, err := codeRepository.GetVerificationCodeByCodeTypeTarget(
 		resestPasswordCodeConf.TypeName,
 		params.Code,
 		params.Email,
@@ -170,7 +177,7 @@ func (us *UserService) ResetPassword(params *UserResetPasswordParams) error {
 		return NewUserError("reset password", ErrVerificationCodeIsInvalid)
 	}
 
-	if err := us.codeRepository.DeleteVerificationCode(
+	if err := codeRepository.DeleteVerificationCode(
 		resestPasswordCodeConf.TypeName,
 		params.Code,
 		params.Email,
@@ -178,7 +185,7 @@ func (us *UserService) ResetPassword(params *UserResetPasswordParams) error {
 		return err
 	}
 
-	user, err := us.userRepository.GetUserByEmail(params.Email)
+	user, err := userRepository.GetUserByEmail(params.Email)
 	if err != nil {
 		return err
 	}
@@ -187,7 +194,7 @@ func (us *UserService) ResetPassword(params *UserResetPasswordParams) error {
 	}
 
 	user.Password = password.CreateHashPassword(params.Password)
-	if err := us.userRepository.UpdateUser(user); err != nil {
+	if err := userRepository.UpdateUser(user); err != nil {
 		return err
 	}
 	return nil
@@ -228,8 +235,18 @@ func (us *UserService) RegisterUser(params *UserRegisterParams) (*models.User, e
 		params.Role = models.UserRoleUser
 	}
 
+	codeRepository, err := us.dataContext.VerificationCode()
+	if err != nil {
+		return nil, err
+	}
+
+	userRepository, err := us.dataContext.User()
+	if err != nil {
+		return nil, err
+	}
+
 	emailCodeConf := &us.config().UserService.VerificationCode.Email
-	code, err := us.codeRepository.GetVerificationCodeByCodeTypeTarget(
+	code, err := codeRepository.GetVerificationCodeByCodeTypeTarget(
 		emailCodeConf.TypeName,
 		params.Code,
 		params.Email,
@@ -243,7 +260,7 @@ func (us *UserService) RegisterUser(params *UserRegisterParams) (*models.User, e
 		return nil, NewUserError("register", ErrVerificationCodeIsInvalid)
 	}
 
-	if err := us.codeRepository.DeleteVerificationCode(
+	if err := codeRepository.DeleteVerificationCode(
 		emailCodeConf.TypeName,
 		params.Code,
 		params.Email,
@@ -251,7 +268,6 @@ func (us *UserService) RegisterUser(params *UserRegisterParams) (*models.User, e
 		return nil, err
 	}
 
-	repository := us.userRepository
 	newUser := &models.User{
 		Username: params.Username,
 		Email:    params.Email,
@@ -259,7 +275,7 @@ func (us *UserService) RegisterUser(params *UserRegisterParams) (*models.User, e
 
 	us.namedLocker.Lock("$file-explorer:user-service$")
 	defer us.namedLocker.UnLock("$file-explorer:user-service$")
-	confling, err := repository.CheckUserExists(newUser)
+	confling, err := userRepository.CheckUserExists(newUser)
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +289,7 @@ func (us *UserService) RegisterUser(params *UserRegisterParams) (*models.User, e
 
 	newUser.Password = password.CreateHashPassword(params.Password)
 	newUser.Role = params.Role
-	if err := repository.CreateUser(newUser); err != nil {
+	if err := userRepository.CreateUser(newUser); err != nil {
 		return nil, err
 	}
 	return newUser, nil
@@ -299,12 +315,17 @@ func (us *UserService) LoginUser(params *UserLoginParams) (*models.Token, error)
 		return nil, invalidArgument("UserService", "params.Password", "LoginUser")
 	}
 
+	userRepository, err := us.dataContext.User()
+	if err != nil {
+		return nil, err
+	}
+
 	var matchedUser *models.User
-	var err error
+
 	if validation.IsEmail(params.Identity) {
-		matchedUser, err = us.userRepository.GetUserByEmail(params.Identity)
+		matchedUser, err = userRepository.GetUserByEmail(params.Identity)
 	} else if validation.IsUsername(params.Identity) {
-		matchedUser, err = us.userRepository.GetUserByUsername(params.Identity)
+		matchedUser, err = userRepository.GetUserByUsername(params.Identity)
 	} else {
 		return nil, NewUserError("login", ErrIncorrectUnameOrPWD)
 	}
@@ -330,7 +351,12 @@ func (us *UserService) GetUserByID(id string) (*models.User, error) {
 		return nil, invalidArgument("UserService", "id", "GetUserByID")
 	}
 
-	user, err := us.userRepository.GetUser(id)
+	userRepository, err := us.dataContext.User()
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := userRepository.GetUser(id)
 	if err != nil {
 		return nil, err
 	}
@@ -372,8 +398,18 @@ func (us *UserService) createVerificationCode(
 	if !validation.IsEmail(email) {
 		return "", NewUserError("verification code", ErrUserFieldIsInvalid)
 	}
+	
+	userRepository, err := us.dataContext.User()
+	if err != nil {
+		return "", err
+	}
 
-	confling, err := us.userRepository.CheckUserExists(&models.User{
+	codeRepository, err := us.dataContext.VerificationCode()
+	if err != nil {
+		return "", err
+	}
+
+	confling, err := userRepository.CheckUserExists(&models.User{
 		Email: email,
 	})
 
@@ -390,7 +426,7 @@ func (us *UserService) createVerificationCode(
 	config := us.config()
 	emailConf := &config.Email
 	code := random.DigitString(6)
-	if err := us.codeRepository.CreateVerificationCode(&models.VerificationCode{
+	if err := codeRepository.CreateVerificationCode(&models.VerificationCode{
 		Type:       typ,
 		Target:     email,
 		Code:       code,
