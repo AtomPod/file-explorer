@@ -10,13 +10,13 @@
 * /file
   * /mkdir   
     * 作用：创建文件夹
-    * 类型：PUT
+    * 类型：POST
     * 参数：
         * name： 文件夹名称(必需)
         * directory_id： 父目录ID(可空，空为根目录)
   * /upload  
     * 作用：上传文件
-    * 类型：PUT
+    * 类型：POST
     * 参数：
         * file： 上传文件(必需)
         * directory_id： 父目录ID(可空，空为根目录)
@@ -42,13 +42,13 @@
         * id[url]： 文件ID(必需)    
   * /:id/rename       修改文件名称
     * 作用：修改文件名称
-    * 类型：POST
+    * 类型：PUT
     * 参数：
         * id[url]: 文件ID(必需)
         * new_name： 新文件名称(必需)
   * /:id/move       修改文件位置
     * 作用：修改文件名称
-    * 类型：POST
+    * 类型：PUT
     * 参数：
         * id[url]： 文件ID(必需)
         * directory_id：新目录ID(必需)
