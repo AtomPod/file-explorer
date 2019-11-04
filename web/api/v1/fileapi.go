@@ -68,7 +68,7 @@ func (api *API) FileDownload(c *gin.Context, form *forms.FileDownload) *APIResul
 	return OK(nil, func(c *gin.Context, data interface{}) error {
 		defer func() {
 			if err := file.Close(); err != nil {
-				log.Error("msg", "occur a error when delete file", "error", err.Error())
+				log.Error("msg", "occur a error when close file", "error", err.Error())
 			}
 		}()
 
