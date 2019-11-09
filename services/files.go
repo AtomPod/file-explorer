@@ -99,7 +99,7 @@ func (f *FileService) createFileModel(file *models.File) (*models.File, error) {
 		file.FID = fid
 	}
 
-	repository, err := f.dataContext.File()
+	fileRepository, err := f.dataContext.File()
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ func (f *FileService) createFileModel(file *models.File) (*models.File, error) {
 	directory := "/"
 
 	if file.Owner != file.PFID {
-		directoryMod, err := repository.GetFileByID(file.Owner, file.FID)
+		directoryMod, err := fileRepository.GetFileByID(file.Owner, file.FID)
 		if err == nil {
 			return nil, err
 		}
@@ -123,7 +123,7 @@ func (f *FileService) createFileModel(file *models.File) (*models.File, error) {
 		directory = path.Join(directoryMod.Directory, directoryMod.Filename)
 	}
 
-	sameMod, err := repository.GetFileByPFIDAndName(file.Owner, file.PFID, file.Filename)
+	sameMod, err := fileRepository.GetFileByPFIDAndName(file.Owner, file.PFID, file.Filename)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func (f *FileService) createFileModel(file *models.File) (*models.File, error) {
 
 	file.Directory = directory
 
-	if err := repository.CreateFile(file); err != nil {
+	if err := fileRepository.CreateFile(file); err != nil {
 		return nil, err
 	}
 

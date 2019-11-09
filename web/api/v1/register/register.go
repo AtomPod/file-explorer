@@ -18,11 +18,16 @@ func APIGINRegister(
 		return api.Gin(v1.APIWithModel(f))
 	}
 
-	authAPIMiddleware := api.Gin(authMiddleware.HandlerFunc(models.UserRoleUser))
 	router.Use(func(c *gin.Context) {
 		httputil.CORS(c.Writer, c.Request)
 		c.Next()
 	})
+
+	router.OPTIONS("/*path", api.Gin(func(c *gin.Context) *v1.APIResult {
+		return v1.OK(nil, nil)
+	}))
+
+	authAPIMiddleware := api.Gin(authMiddleware.HandlerFunc(models.UserRoleUser))
 	apiRouter := router.Group("/api/v1")
 	userRouter := apiRouter.Group("/user")
 	userRouter.POST("/register", ginAPIFunc(api.UserRegister))
